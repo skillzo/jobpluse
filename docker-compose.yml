@@ -1,0 +1,98 @@
+version: "3.8"
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:16-alpine
+    container_name: jobpulse-db
+    environment:
+      POSTGRES_DB: jobpulse
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d jobpulse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - jobpulse-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: jobpulse-backend
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      DATABASE_URL: postgres://app:app@db:5432/jobpulse
+      REMOTEOK_API_URL: https://remoteok.com/api
+      FRONTEND_ORIGIN: http://localhost:5173
+      CRON_SCHEDULE: "0 * * * *"
+      LOG_LEVEL: info
+    ports:
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/logs:/app/logs
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:4000/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - jobpulse-network
+    restart: unless-stopped
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: jobpulse-frontend
+    environment:
+      VITE_API_BASE: http://localhost:4000
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:80/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - jobpulse-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  jobpulse-network:
+    driver: bridge
