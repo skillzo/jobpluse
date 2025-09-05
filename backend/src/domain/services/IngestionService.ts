@@ -48,6 +48,8 @@ export class IngestionService {
   async ingestFromRemoteOK(): Promise<IngestionResult> {
     const result: IngestionResult = { inserted: 0, updated: 0, errors: [] };
 
+    console.log("Starting RemoteOK ingestion...", result);
+
     try {
       logger.info("Starting RemoteOK ingestion...");
 

@@ -78,6 +78,8 @@ export class JobController {
   async syncJobs(req: Request, res: Response): Promise<void> {
     const result = await this.ingestionService.ingestFromRemoteOK();
 
+    console.log("Sync completed", result);
+
     res.json({
       message: "Sync completed",
       result,
